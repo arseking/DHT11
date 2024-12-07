@@ -1,0 +1,140 @@
+C51 COMPILER V9.54   DHT11                                                                 12/07/2024 20:19:59 PAGE 1   
+
+
+C51 COMPILER V9.54, COMPILATION OF MODULE DHT11
+OBJECT MODULE PLACED IN .\Objects\DHT11.obj
+COMPILER INVOKED BY: D:\KEIL5\C51\BIN\C51.EXE DHT11\DHT11.c OPTIMIZE(8,SPEED) BROWSE INCDIR(.\DHT11;.\Delay;.\Printf) DE
+                    -BUG OBJECTEXTEND PRINT(.\Listings\DHT11.lst) TABS(2) OBJECT(.\Objects\DHT11.obj)
+
+line level    source
+
+   1          #include <reg52.h>
+   2          #include "Delay.h" 
+   3          #include "DHT11.h"
+   4          #include "Type.h" 
+   5           
+   6          sbit Data=P1^0; //数据线
+   7           
+   8          u8 rec_dat[9]; //储存数据
+   9           
+  10          /** 
+  11           * 函数名称： DHT11_start
+  12           *
+  13           * 功能说明： 主机（单片机）给DHT11发送起始信号；
+  14           *
+  15           * 参数说明： 无
+  16           *
+  17           * 函数返回： 无
+  18           */
+  19          void DHT11_start()
+  20          {
+  21   1        /* 发送开始信号 */
+  22   1        Data=0;
+  23   1        Delay_ms(20);   //拉低 20ms
+  24   1        
+  25   1        /* 释放总线，等待响应 */
+  26   1        Data=1;
+  27   1        Delay_us(2);    //拉高至少20us，DHT11才能响应
+  28   1      }
+  29           
+  30          /** 
+  31           * 函数名称： DHT11_rec_byte
+  32           *
+  33           * 功能说明： 主机（单片机）接收DHT11一字节数据；
+  34           *
+  35           * 参数说明： 无
+  36           *
+  37           * 函数返回： dat - 从DHT11获取的一个字节数据
+  38           * 
+  39           */
+  40          u8 DHT11_rec_byte()
+  41          {
+  42   1        u8 i,dat=0;
+  43   1       
+  44   1        /* 从高到低依次接收8位数据 */
+  45   1        for(i=0;i<8;i++)
+  46   1        {          
+  47   2          while(Data);                            //等待低电平，DHT11开始传输数据
+  48   2          while(!Data);                           //等待54us低电平过去
+  49   2          
+  50   2          /* 通过高电平时间长度判断数据是0是1 */
+  51   2          Delay_us(6);                            //延时50us（数据0是24us，数据1是71us）
+  52   2          dat<<=1;                                //移位（dat保留前面获取的数据，并低位补零）
+  53   2          if(Data==1)                             //延时50us后仍为高电平，则数据是1
+  54   2          {
+C51 COMPILER V9.54   DHT11                                                                 12/07/2024 20:19:59 PAGE 2   
+
+  55   3            dat+=1;                               //dat通过+1给地位写入1
+  56   3          }
+  57   2          while(Data);                            //等待数据线拉低
+  58   2        }  
+  59   1        return dat;
+  60   1      }
+  61           
+  62          /** 
+  63           * 函数名称： DHT11_receive
+  64           *
+  65           * 功能说明： 主机（单片机）接收DHT11完整的温湿度数据；
+  66           *
+  67           * 参数说明： 无
+  68           *
+  69           * 函数返回： 无
+  70           */
+  71          void DHT11_receive()
+  72          {
+  73   1        u8 R_H,R_L,T_L,T_H,RH,RL,TH,TL,revise;
+  74   1        
+  75   1        DHT11_start();            //发送起始信号：
+  76   1        
+  77   1        /* 判断DHT11是否响应 */
+  78   1        if(Data==0)
+  79   1        {
+  80   2          /* DHT11响应 */
+  81   2          while(!Data);                   //等待拉高     
+  82   2          Delay_us(13);                   //延时92us，等待传输数据  
+  83   2       
+  84   2          /* 接收温湿度数据 */
+  85   2          R_H=DHT11_rec_byte();           //接收湿度高八位  
+  86   2          R_L=DHT11_rec_byte();           //接收湿度低八位  
+  87   2          T_H=DHT11_rec_byte();           //接收温度高八位  
+  88   2          T_L=DHT11_rec_byte();           //接收温度低八位
+  89   2          revise=DHT11_rec_byte();        //接收校正位
+  90   2       
+  91   2          /* 校验温湿度数据 */
+  92   2          if((R_H+R_L+T_H+T_L)==revise)   //温湿度4字节数据相加是否等于校验位数据
+  93   2          {
+  94   3              RH=R_H;
+  95   3              RL=R_L;
+  96   3              TH=T_H;
+  97   3              TL=T_L;
+  98   3          } 
+  99   2       
+ 100   2          /*湿度数据*/
+ 101   2          rec_dat[0]='0'+(RH/10);
+ 102   2          rec_dat[1]='0'+(RH%10);
+ 103   2          rec_dat[2]=' ';
+ 104   2          rec_dat[3]=' ';
+ 105   2       
+ 106   2          /*温度数据*/
+ 107   2          rec_dat[4]='0'+(TH/10);
+ 108   2          rec_dat[5]='0'+(TH%10); 
+ 109   2          rec_dat[6]=' ';
+ 110   2          rec_dat[7]=' ';
+ 111   2        }
+ 112   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    201    ----
+C51 COMPILER V9.54   DHT11                                                                 12/07/2024 20:19:59 PAGE 3   
+
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      9      10
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
